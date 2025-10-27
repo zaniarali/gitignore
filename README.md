@@ -1,4 +1,6 @@
-
+@app.route('/')
+def index():
+    menu = '''
     <h1>brukerinformasjon</h1>
     <ul>
         <li><a href="/vis_klasse">Vis klasser</a></li>
