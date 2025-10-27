@@ -1,26 +1,3 @@
-from flask import Flask, request, redirect, render_template_string
-import sqlite3
-
-app = Flask(__name__)
-
-# --- Oppretter databasen og tabellene hvis de ikke finnes ---
-def init_db():
-    con = sqlite3.connect("skole.db")
-    cur = con.cursor()
-    cur.execute('''CREATE TABLE IF NOT EXISTS klasse (
-                    klassekode CHAR(5) PRIMARY KEY,
-                    klassenavn VARCHAR(50) NOT NULL,
-                    studiumkode VARCHAR(50) NOT NULL)''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS student (
-                    brukernavn CHAR(7) PRIMARY KEY,
-                    fornavn VARCHAR(50) NOT NULL,
-                    etternavn VARCHAR(50) NOT NULL,
-                    klassekode CHAR(5) NOT NULL,
-                    FOREIGN KEY (klassekode) REFERENCES klasse(klassekode))''')
-    con.commit()
-    con.close()
-
-init_db()
 
 # --- HOVEDMENY ---
 @app.route('/')
