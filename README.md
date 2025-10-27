@@ -1,145 +1,178 @@
-<?php
-// === DATABASETILKOBLING ===
-$host = "localhost";
-$user = "root";      // endre hvis Dokploy krever annen bruker
-$pass = "";          // ev. passord
-$dbname = "skole";   // databasenavn
+from flask import Flask, request, redirect, render_template_string
+import sqlite3
 
-$conn = new mysqli($host, $user, $pass, $dbname);
-if ($conn->connect_error) {
-  die("Tilkoblingsfeil: " . $conn->connect_error);
-}
+app = Flask(__name__)
 
-// === FUNKSJON FOR SLETTING ===
-if (isset($_GET['slett_klasse'])) {
-  $kode = $_GET['slett_klasse'];
-  $conn->query("DELETE FROM klasse WHERE klassekode='$kode'");
-  header("Location: index.php?vis=klasse");
-  exit;
-}
+# --- Oppretter databasen og tabellene hvis de ikke finnes ---
+def init_db():
+    con = sqlite3.connect("skole.db")
+    cur = con.cursor()
+    cur.execute('''CREATE TABLE IF NOT EXISTS klasse (
+                    klassekode CHAR(5) PRIMARY KEY,
+                    klassenavn VARCHAR(50) NOT NULL,
+                    studiumkode VARCHAR(50) NOT NULL)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS student (
+                    brukernavn CHAR(7) PRIMARY KEY,
+                    fornavn VARCHAR(50) NOT NULL,
+                    etternavn VARCHAR(50) NOT NULL,
+                    klassekode CHAR(5) NOT NULL,
+                    FOREIGN KEY (klassekode) REFERENCES klasse(klassekode))''')
+    con.commit()
+    con.close()
 
-if (isset($_GET['slett_student'])) {
-  $bruker = $_GET['slett_student'];
-  $conn->query("DELETE FROM student WHERE brukernavn='$bruker'");
-  header("Location: index.php?vis=student");
-  exit;
-}
+init_db()
 
-// === FUNKSJON FOR REGISTRERING ===
-if (isset($_POST['lagre_klasse'])) {
-  $kode = $_POST['kode'];
-  $navn = $_POST['navn'];
-  $studium = $_POST['studium'];
-  $conn->query("INSERT INTO klasse VALUES ('$kode', '$navn', '$studium')");
-  header("Location: index.php?vis=klasse");
-  exit;
-}
+# --- HOVEDMENY ---
+@app.route('/')
+def index():
+    menu = '''
+    <h1>Skoleadministrasjon</h1>
+    <ul>
+        <li><a href="/vis_klasse">Vis klasser</a></li>
+        <li><a href="/leggtil_klasse">Legg til klasse</a></li>
+        <li><a href="/slett_klasse">Slett klasse</a></li>
+        <li><br></li>
+        <li><a href="/vis_student">Vis studenter</a></li>
+        <li><a href="/leggtil_student">Legg til student</a></li>
+        <li><a href="/slett_student">Slett student</a></li>
+    </ul>
+    '''
+    return render_template_string(menu)
 
-if (isset($_POST['lagre_student'])) {
-  $bruker = $_POST['bruker'];
-  $fornavn = $_POST['fornavn'];
-  $etternavn = $_POST['etternavn'];
-  $klassekode = $_POST['klassekode'];
-  $conn->query("INSERT INTO student VALUES ('$bruker', '$fornavn', '$etternavn', '$klassekode')");
-  header("Location: index.php?vis=student");
-  exit;
-}
-?>
+# --- VIS KLASSE ---
+@app.route('/vis_klasse')
+def vis_klasse():
+    con = sqlite3.connect("skole.db")
+    cur = con.cursor()
+    cur.execute("SELECT * FROM klasse")
+    klasser = cur.fetchall()
+    con.close()
 
-<!DOCTYPE html>
-<html lang="no">
-<head>
-  <meta charset="UTF-8">
-  <title>Vedlikeholdssystem</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 30px; }
-    table { border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #999; padding: 6px 10px; }
-    h1 { margin-bottom: 10px; }
-    a { text-decoration: none; color: #0055cc; }
-    a:hover { text-decoration: underline; }
-    form { margin-top: 15px; }
-    input, select { margin: 3px 0; padding: 4px; }
-  </style>
-</head>
-<body>
+    html = "<h2>Klasser</h2><table border=1><tr><th>Kode</th><th>Navn</th><th>Studium</th></tr>"
+    for k in klasser:
+        html += f"<tr><td>{k[0]}</td><td>{k[1]}</td><td>{k[2]}</td></tr>"
+    html += "</table><a href='/'>Tilbake</a>"
+    return render_template_string(html)
 
-<h1>Vedlikeholdssystem</h1>
-<ul>
-  <li><a href="index.php?vis=klasse">Administrer klasser</a></li>
-  <li><a href="index.php?vis=student">Administrer studenter</a></li>
-</ul>
+# --- LEGG TIL KLASSE ---
+@app.route('/leggtil_klasse', methods=['GET', 'POST'])
+def leggtil_klasse():
+    if request.method == 'POST':
+        kode = request.form['klassekode']
+        navn = request.form['klassenavn']
+        studie = request.form['studiumkode']
+        con = sqlite3.connect("skole.db")
+        cur = con.cursor()
+        cur.execute("INSERT INTO klasse VALUES (?, ?, ?)", (kode, navn, studie))
+        con.commit()
+        con.close()
+        return redirect('/')
+    form = '''
+    <h2>Legg til klasse</h2>
+    <form method="post">
+        Kode: <input name="klassekode"><br>
+        Navn: <input name="klassenavn"><br>
+        Studiumkode: <input name="studiumkode"><br>
+        <input type="submit" value="Lagre">
+    </form>
+    <a href="/">Tilbake</a>
+    '''
+    return render_template_string(form)
 
-<hr>
+# --- SLETT KLASSE ---
+@app.route('/slett_klasse', methods=['GET','POST'])
+def slett_klasse():
+    con = sqlite3.connect("skole.db")
+    cur = con.cursor()
+    cur.execute("SELECT klassekode FROM klasse")
+    klasser = cur.fetchall()
+    if request.method == 'POST':
+        kode = request.form['klassekode']
+        cur.execute("DELETE FROM klasse WHERE klassekode=?", (kode,))
+        con.commit()
+        con.close()
+        return redirect('/')
+    con.close()
+    options = "".join([f"<option value='{k[0]}'>{k[0]}</option>" for k in klasser])
+    form = f'''
+    <h2>Slett klasse</h2>
+    <form method="post">
+        <select name="klassekode">{options}</select>
+        <input type="submit" value="Slett">
+    </form>
+    <a href="/">Tilbake</a>
+    '''
+    return render_template_string(form)
 
-<?php
-// === VIS KLASSE-DEL ===
-if (isset($_GET['vis']) && $_GET['vis'] == 'klasse') {
-  echo "<h2>Klasser</h2>";
+# --- VIS STUDENT ---
+@app.route('/vis_student')
+def vis_student():
+    con = sqlite3.connect("skole.db")
+    cur = con.cursor()
+    cur.execute("SELECT * FROM student")
+    studenter = cur.fetchall()
+    con.close()
+    html = "<h2>Studenter</h2><table border=1><tr><th>Brukernavn</th><th>Fornavn</th><th>Etternavn</th><th>Klasse</th></tr>"
+    for s in studenter:
+        html += f"<tr><td>{s[0]}</td><td>{s[1]}</td><td>{s[2]}</td><td>{s[3]}</td></tr>"
+    html += "</table><a href='/'>Tilbake</a>"
+    return render_template_string(html)
 
-  $result = $conn->query("SELECT * FROM klasse");
-  echo "<table><tr><th>Kode</th><th>Navn</th><th>Studiumkode</th><th>Slett</th></tr>";
-  while ($row = $result->fetch_assoc()) {
-    echo "<tr>
-      <td>{$row['klassekode']}</td>
-      <td>{$row['klassenavn']}</td>
-      <td>{$row['studiumkode']}</td>
-      <td><a href='?slett_klasse={$row['klassekode']}'>Slett</a></td>
-    </tr>";
-  }
-  echo "</table>";
+# --- LEGG TIL STUDENT ---
+@app.route('/leggtil_student', methods=['GET','POST'])
+def leggtil_student():
+    con = sqlite3.connect("skole.db")
+    cur = con.cursor()
+    cur.execute("SELECT klassekode FROM klasse")
+    klasser = cur.fetchall()
+    if request.method == 'POST':
+        brukernavn = request.form['brukernavn']
+        fornavn = request.form['fornavn']
+        etternavn = request.form['etternavn']
+        klassekode = request.form['klassekode']
+        cur.execute("INSERT INTO student VALUES (?, ?, ?, ?)", (brukernavn, fornavn, etternavn, klassekode))
+        con.commit()
+        con.close()
+        return redirect('/')
+    options = "".join([f"<option value='{k[0]}'>{k[0]}</option>" for k in klasser])
+    form = f'''
+    <h2>Legg til student</h2>
+    <form method="post">
+        Brukernavn: <input name="brukernavn"><br>
+        Fornavn: <input name="fornavn"><br>
+        Etternavn: <input name="etternavn"><br>
+        Klasse: <select name="klassekode">{options}</select><br>
+        <input type="submit" value="Lagre">
+    </form>
+    <a href="/">Tilbake</a>
+    '''
+    return render_template_string(form)
 
-  echo "
-  <h3>Registrer ny klasse</h3>
-  <form method='POST'>
-    Kode: <input type='text' name='kode' required><br>
-    Navn: <input type='text' name='navn' required><br>
-    Studiumkode: <input type='text' name='studium' required><br>
-    <input type='submit' name='lagre_klasse' value='Lagre'>
-  </form>
-  ";
-}
+# --- SLETT STUDENT ---
+@app.route('/slett_student', methods=['GET','POST'])
+def slett_student():
+    con = sqlite3.connect("skole.db")
+    cur = con.cursor()
+    cur.execute("SELECT brukernavn FROM student")
+    studenter = cur.fetchall()
+    if request.method == 'POST':
+        brukernavn = request.form['brukernavn']
+        cur.execute("DELETE FROM student WHERE brukernavn=?", (brukernavn,))
+        con.commit()
+        con.close()
+        return redirect('/')
+    con.close()
+    options = "".join([f"<option value='{s[0]}'>{s[0]}</option>" for s in studenter])
+    form = f'''
+    <h2>Slett student</h2>
+    <form method="post">
+        <select name="brukernavn">{options}</select>
+        <input type="submit" value="Slett">
+    </form>
+    <a href="/">Tilbake</a>
+    '''
+    return render_template_string(form)
 
-// === VIS STUDENT-DEL ===
-elseif (isset($_GET['vis']) && $_GET['vis'] == 'student') {
-  echo "<h2>Studenter</h2>";
-
-  $result = $conn->query("SELECT * FROM student");
-  echo "<table><tr><th>Brukernavn</th><th>Fornavn</th><th>Etternavn</th><th>Klasse</th><th>Slett</th></tr>";
-  while ($row = $result->fetch_assoc()) {
-    echo "<tr>
-      <td>{$row['brukernavn']}</td>
-      <td>{$row['fornavn']}</td>
-      <td>{$row['etternavn']}</td>
-      <td>{$row['klassekode']}</td>
-      <td><a href='?slett_student={$row['brukernavn']}'>Slett</a></td>
-    </tr>";
-  }
-  echo "</table>";
-
-  // Hent klasseliste
-  $res = $conn->query("SELECT klassekode FROM klasse");
-  echo "
-  <h3>Registrer ny student</h3>
-  <form method='POST'>
-    Brukernavn: <input type='text' name='bruker' required><br>
-    Fornavn: <input type='text' name='fornavn' required><br>
-    Etternavn: <input type='text' name='etternavn' required><br>
-    Klassekode: <select name='klassekode'>";
-  while ($r = $res->fetch_assoc()) {
-    echo "<option value='{$r['klassekode']}'>{$r['klassekode']}</option>";
-  }
-  echo "</select><br>
-    <input type='submit' name='lagre_student' value='Lagre'>
-  </form>
-  ";
-}
-
-// === STANDARD FORSIDE ===
-else {
-  echo "<p>Velg hva du vil administrere fra menyen over.</p>";
-}
-?>
-
-</body>
-</html>
+# --- START APP ---
+if __name__ == '__main__':
+    app.run(debug=True)
