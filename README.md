@@ -118,61 +118,6 @@ def vis_student():
     html += "</table><a href='/'>Tilbake</a>"
     return render_template_string(html)
 
-# --- LEGG TIL STUDENT ---
-@app.route('/leggtil_student', methods=['GET','POST'])
-def leggtil_student():
-    con = sqlite3.connect("skole.db")
-    cur = con.cursor()
-    cur.execute("SELECT klassekode FROM klasse")
-    klasser = cur.fetchall()
-    if request.method == 'POST':
-        brukernavn = request.form['brukernavn']
-        fornavn = request.form['fornavn']
-        etternavn = request.form['etternavn']
-        klassekode = request.form['klassekode']
-        cur.execute("INSERT INTO student VALUES (?, ?, ?, ?)", (brukernavn, fornavn, etternavn, klassekode))
-        con.commit()
-        con.close()
-        return redirect('/')
-    options = "".join([f"<option value='{k[0]}'>{k[0]}</option>" for k in klasser])
-    form = f'''
-    <h2>Legg til student</h2>
-    <form method="post">
-        Brukernavn: <input name="brukernavn"><br>
-        Fornavn: <input name="fornavn"><br>
-        Etternavn: <input name="etternavn"><br>
-        Klasse: <select name="klassekode">{options}</select><br>
-        <input type="submit" value="Lagre">
-    </form>
-    <a href="/">Tilbake</a>
-    '''
-    return render_template_string(form)
-
-# --- SLETT STUDENT ---
-@app.route('/slett_student', methods=['GET','POST'])
-def slett_student():
-    con = sqlite3.connect("skole.db")
-    cur = con.cursor()
-    cur.execute("SELECT brukernavn FROM student")
-    studenter = cur.fetchall()
-    if request.method == 'POST':
-        brukernavn = request.form['brukernavn']
-        cur.execute("DELETE FROM student WHERE brukernavn=?", (brukernavn,))
-        con.commit()
-        con.close()
-        return redirect('/')
-    con.close()
-    options = "".join([f"<option value='{s[0]}'>{s[0]}</option>" for s in studenter])
-    form = f'''
-    <h2>Slett student</h2>
-    <form method="post">
-        <select name="brukernavn">{options}</select>
-        <input type="submit" value="Slett">
-    </form>
-    <a href="/">Tilbake</a>
-    '''
-    return render_template_string(form)
-
 # --- START APP ---
 if __name__ == '__main__':
     app.run(debug=True)
