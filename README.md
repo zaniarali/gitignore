@@ -3,7 +3,7 @@
 @app.route('/')
 def index():
     menu = '''
-    <h1>Skoleadministrasjon</h1>
+    <h1>brukerinformasjon</h1>
     <ul>
         <li><a href="/vis_klasse">Vis klasser</a></li>
         <li><a href="/leggtil_klasse">Legg til klasse</a></li>
