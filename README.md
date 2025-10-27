@@ -1,5 +1,5 @@
 
-# --- HOVEDMENY ---
+
 @app.route('/')
 def index():
     menu = '''
